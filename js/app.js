@@ -325,11 +325,6 @@
                         return ( <Tile status={tile} key={position} tileClick={this.tileClick}/> );
                     }, this)}
                 </div>
-                <div id="game-board">
-                    {this.state.tiles.map(function (tile, position) {
-                        return ( <Tile status={tile} key={position} tileClick={this.tileClick}/> );
-                    }, this)}
-                </div>
                 <Menu winClass={this.state.win ? 'button win' : 'button'}
                       status={this.state.win ? 'You win!' : 'Solve the puzzle.'} restart={this.restartGame}
                       nextMove={this.tileMove}/>
