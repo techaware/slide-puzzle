@@ -85,14 +85,28 @@
 
             return {
                 // initial state of game board
-                tiles: initState,
-                win: false,
-                prevStates: [[...initState]],
-                distances: [[0, 20]]
+                board1:{
+                    number: 1,
+                    tiles: initState,
+                    win: false,
+                    prevStates: [[...initState]],
+                    distances: [[0, 20]]
+                },
+                board2:{
+                    number: 2,
+                    tiles: initState,
+                    win: false,
+                    prevStates: [[...initState]],
+                    distances: [[0, 20]]
+                }
             };
         },
-        checkBoard: function () {
-            var tiles = this.state.tiles;
+        checkBoard: function (br) {
+            if(br==1){
+                var tiles = this.state.board1.tiles;
+            }else{
+                var tiles = this.state.board2.tiles;
+            }
 
             for (var i = 0; i < tiles.length - 1; i++) {
                 if (tiles[i] !== i + 1) return false;
@@ -101,10 +115,15 @@
             return true;
         },
 
-        tileMove: function () {
+        tileMoveAll:function(){
+            // setTimeout(function(){
+            //     this.tileMove(1);
+            // },0);
+            this.tileMove(2);
+        },
+        tileMove: function (br) {
 
-            var tiles = this.state.tiles;
-            var prevStates = this.state.prevStates;
+
             //get element from position
             function findVacant() {
                 for (var i = 0; i < tiles.length; i++) {
@@ -236,28 +255,56 @@
 
             };
 
+            if(br==1){
+                var tiles = this.state.board1.tiles;
+                var prevStates = this.state.board1.prevStates;
+                var vacantPos = findVacant();
+                var sTiles = [...tiles];
+                var rt = pickTileToMove(vacantPos);
+                if (rt.newState == true) {
+
+                    var dCopy = [...this.state.board1.distances];
+                    dCopy[dCopy.length] = [dCopy.length + 1, rt.tDs];
+
+                    this.setState({board1:{distances:dCopy}});
+
+                    var tileEl = document.querySelector('.tile1:nth-child(' + (rt.tPos + 1) + ')');
+                    this.tileClick(tileEl, rt.tPos, tiles[rt.tPos],this.state.board1);
+                }
+            }else{
+                var tiles = this.state.board2.tiles;
+                var prevStates = this.state.board2.prevStates;
+                var vacantPos = findVacant();
+                var sTiles = [...tiles];
+                    var rt = pickTileToMoveWithDepth(vacantPos, 1, sTiles);
+                    if (rt.newState == true) {
+                        var dCopy = [...this.state.board2.distances];
+                        dCopy[dCopy.length] = [dCopy.length + 1, rt.tDs];
+
+                        this.setState({board2:{distances:dCopy}});
+
+                        var tileEl = document.querySelector('.tile2:nth-child(' + (rt.tPos + 1) + ')');
+                        this.tileClick(tileEl, rt.tPos, tiles[rt.tPos],this.state.board1);
+                    }
+
+            }
+
             //   TODO: uses hill climbing algo to decide
 
-            var vacantPos = findVacant();
 
-            var sTiles = [...tiles];
-            var rt = pickTileToMoveWithDepth(vacantPos, 1, sTiles);
-            // var rt = pickTileToMove(vacantPos);
-            if (rt.newState == true) {
-                var distances = [...this.state.distances];
-                distances[distances.length] = [distances.length + 1, rt.tDs];
-                this.setState({distances: distances});
-                var tileEl = document.querySelector('.tile:nth-child(' + (rt.tPos + 1) + ')');
-                this.tileClick(tileEl, rt.tPos, tiles[rt.tPos]);
-            }
+
+
+
 
 
             //  simulate the tile click
             //  get DOM for the tile click
         },
-        tileClick: function (tileEl, position, status) {
-            var tiles = this.state.tiles;
-            var prevStates = this.state.prevStates;
+        tileClick: function (tileEl, position, status,board) {
+
+                var tiles = board.tiles;
+                var prevStates = board.prevStates;
+
             // Possible moves
             // [up,right,down,left]
             // 9 = out of bounds
@@ -267,9 +314,14 @@
                 [3, 7, null, null], [4, 8, null, 6], [5, null, null, 7]
             ];
 
-            function animateTiles(i, move) {
+            function animateTiles(i, move,brno) {
                 var directions = ['up', 'right', 'down', 'left'];
-                var moveToEl = document.querySelector('.tile:nth-child(' + (move + 1) + ')');
+                if(brno==1){
+                    var moveToEl = document.querySelector('.tile1:nth-child(' + (move + 1) + ')');
+                }else{
+                    var moveToEl = document.querySelector('.til2:nth-child(' + (move + 1) + ')');
+                }
+
                 direction = directions[i];
                 tileEl.classList.add('move-' + direction);
                 // this is all a little hackish.
@@ -287,29 +339,41 @@
             // called after tile is fully moved
             // sets new state
             function afterAnimate() {
+                brnr = board.number;
                 tiles[position] = '';
                 tiles[move] = status;
                 prevStates[prevStates.length] = [...tiles];
-                this.setState({
-                    tiles: tiles,
-                    moves: moves,
-                    win: this.checkBoard(),
-                    prevStates: prevStates
-                });
-
-                //next move
-                this.tileMove();
+                // var win = this.checkBoard(brnr);
+                if(brnr==1){
+                    this.setState(
+                        {board1:{
+                            tiles: tiles,
+                            win: this.checkBoard(brnr),
+                            prevStates: prevStates
+                    }});
+                    //next move
+                    this.tileMove(1);
+                }else{
+                    this.setState(
+                        {board2:{
+                            tiles: tiles,
+                            win: this.checkBoard(brnr),
+                            prevStates: prevStates
+                        }});
+                    //next move
+                    this.tileMove(2);
+                }
             };
 
             // return if they've already won
-            if (this.state.win) return;
+            if (board.win) return;
 
             // check possible moves
             for (var i = 0; i < moves[position].length; i++) {
                 var move = moves[position][i];
                 // if an adjacent tile is empty
                 if (typeof move === 'number' && !tiles[move]) {
-                    animateTiles(i, move);
+                    animateTiles(i, move,board.number);
                     setTimeout(afterAnimate.bind(this), 200);
                     break;
                 }
@@ -321,19 +385,22 @@
         render: function () {
             return <div>
                 <div id="game-board">
-                    {this.state.tiles.map(function (tile, position) {
-                        return ( <Tile status={tile} key={position} tileClick={this.tileClick}/> );
+                    {this.state.board1.tiles.map(function (tile, position) {
+                        return ( <Tile board={1} status={tile} key={position} tileClick={this.tileClick}/> );
                     }, this)}
                 </div>
                 <div id="game-board">
-                    {this.state.tiles.map(function (tile, position) {
-                        return ( <Tile status={tile} key={position} tileClick={this.tileClick}/> );
+                    {this.state.board2.tiles.map(function (tile, position) {
+                        return ( <Tile board={2} status={tile} key={position} tileClick={this.tileClick}/> );
                     }, this)}
                 </div>
                 <Menu winClass={this.state.win ? 'button win' : 'button'}
                       status={this.state.win ? 'You win!' : 'Solve the puzzle.'} restart={this.restartGame}
-                      nextMove={this.tileMove}/>
-                <DistanceChart distances={this.state.distances}/>
+                      nextMove={this.tileMoveAll}/>
+
+                <DistanceChart board = {'board1'} distances={this.state.board1.distances}/>
+                <DistanceChart board = {'board2'} distances={this.state.board2.distances}/>
+                {/*<DistanceChart distances={this.state.board2.distances}/>*/}
             </div>;
         }
     });
@@ -367,8 +434,8 @@
                     rows={this.props.distances}
                     columns={this.state.columns}
                     options={this.state.options}
-                    graph_id="Distance"
-                    width="100%"
+                    graph_id={this.props.board}
+                    width="50%"
                     height="400px"
                     legend_toggle
                 />
@@ -381,7 +448,7 @@
         },
         render: function () {
             // return <div className="tile" onClick={this.clickHandler}>{this.props.status}</div>;
-            return <div className="tile">{this.props.status}</div>;
+            return <div className={this.props.board==1?'tile1':'tile2'}>{this.props.status}</div>;
         }
     });
 
