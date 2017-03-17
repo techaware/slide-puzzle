@@ -1,25 +1,109 @@
 /** @jsx React.DOM */
 
-// ReactJS Slide Puzzle
-// Author:     Evan Henley
-// Author URI: henleyedition.com
-
 (function () {
 
     var Game = React.createClass({
 
+        render: function () {
+
+            return (
+                    <span id='game-board' className={this.props.id}>
+                    {this.props.tiles.map(function (tile, position) {
+                        return ( <Tile status={tile} id={position} tileClick={this.props.tileClick}/> );
+                    }, this)}
+                </span>
+            );
+        }
+    });
+
+    var Games = React.createClass({
+        shuffle: function () {
+
+            var startArray = [1, 2, 3, 4, 5, 6, 7, 8, ''];
+
+            // switches first two tiles
+            function switchTiles(array) {
+                var i = 0;
+
+                // find the first two tiles in a row
+                while (!array[i] || !array[i + 1]) i++;
+
+                // store tile value
+                var tile = array[i];
+                // switche values
+                array[i] = array[i + 1];
+                array[i + 1] = tile;
+
+                return array;
+            }
+
+            // counts inversions
+            function countInversions(array) {
+                // make array of inversions
+                var invArray = array.map(function (num, i) {
+                    var inversions = 0;
+                    for (j = i + 1; j < array.length; j++) {
+                        if (array[j] && array[j] < num) {
+                            inversions += 1;
+                        }
+                    }
+                    return inversions;
+                });
+                // return sum of inversions array
+                return invArray.reduce(function (a, b) {
+                    return a + b;
+                });
+            }
+
+            // fischer-yates shuffle algorithm
+            function fischerYates(array) {
+                var counter = array.length, temp, index;
+
+                // While there are elements in the array
+                while (counter > 0) {
+                    // Pick a random index
+                    index = Math.floor(Math.random() * counter);
+                    // Decrease counter by 1
+                    counter--;
+                    // And swap the last element with it
+                    temp = array[counter];
+                    array[counter] = array[index];
+                    array[index] = temp;
+                }
+
+                // array = [1,2,3,4,5,6,7,'',8];
+                return array;
+            }
+
+            // Fischer-Yates shuffle
+            var array = fischerYates(startArray);
+
+            // check for even number of inversions
+            if (countInversions(array) % 2 !== 0) {
+                // switch two tiles if odd
+                array = switchTiles(array);
+            }
+
+            return array;
+        },
 
         getInitialState: function () {
 
+            var initTiles = this.shuffle();
+            this.props.userPrevStates = [initTiles];
+            this.props.autoPrevStates = [initTiles];
+            this.props.win = false;
+            this.props.userWin = false;
+            this.props.autoWin = false;
             return {
                 // initial state of game board
-                tiles: [...this.props.initState],
-                win: false,
-                prevStates: [[...this.props.initState]]
+                userTiles: initTiles,
+                autoTiles: initTiles,
+                autoSolve:false,
             };
         },
-        checkBoard: function () {
-            var tiles = this.state.tiles;
+        checkBoard: function (tiles) {
+            // var tiles = this.state.tiles;
 
             for (var i = 0; i < tiles.length - 1; i++) {
                 if (tiles[i] !== i + 1) return false;
@@ -28,13 +112,10 @@
             return true;
         },
 
-        getWinStatus: function(){
-          return this.state.win;
-        },
-        tileMove: function () {
+        autoTileClick: function (auto) {
 
             //get element from position
-            function findVacant() {
+            function findVacant(tiles) {
                 for (var i = 0; i < tiles.length; i++) {
                     if (tiles[i] == '')return i;
                 }
@@ -127,7 +208,7 @@
                     nxTiles[tPos] = '';
                     //if nxTiles is same as previous then  drop it
                     if (!isEqual(nxTiles, prevTiles)) {
-                        if(dp != 0) {
+                        if (dp != 0) {
                             dp--;
                             var rt = pickTileToMoveWithDepth(tPos, dp, nxTiles, sTiles);
                             nxDs = rt.tDs;
@@ -151,21 +232,61 @@
 
             };
 
-            var tiles = this.state.tiles;
-            var prevStates = this.state.prevStates;
+            var tiles = [...this.state.autoTiles];
+            var prevStates = this.props.autoPrevStates;
 
-            var vacantPos = findVacant();
+            var vacantPos = findVacant(tiles);
             var sTiles = [...tiles];
-            var rt = pickTileToMoveWithDepth(vacantPos,3, sTiles);
+            var rt = pickTileToMoveWithDepth(vacantPos, 3, sTiles);
             if (rt.newState == true) {
                 var tileEl = document.querySelector('.Auto > .tile:nth-child(' + (rt.tPos + 1 ) + ')');
-                this.tileClick(tileEl, rt.tPos, tiles[rt.tPos]);
+                this.tileClick(tileEl, rt.tPos, tiles[rt.tPos],tiles,prevStates);
+
+                 var autoSolve = true;
+                if(this.props.win==true){
+                    this.props.autoWin=true;
+                    autoSolve = false;
+                }
+                this.setState({
+                    autoTiles: tiles,
+                    autoSolve: autoSolve
+                });
+
+            //  if auto solve
+                if (auto==true && this.props.win!=true){
+                    that=this;
+                    setTimeout(function(){that.autoTileClick(true)},500);
+                };
             }
         },
-        tileClick: function (tileEl, position, status) {
+        userTileClick: function (tileEl, position, status){
+            var tiles = [...this.state.userTiles];
+            var prevStates = this.props.userPrevStates;
 
-            var tiles = this.state.tiles;
-            var prevStates = this.state.prevStates;
+            if(status!=''){
+                this.tileClick(tileEl, position, status,tiles,prevStates);
+
+                var autoSolve = true;
+                if(this.props.win==true){
+                    this.props.userWin=true;
+                    autoSolve = false;
+                }
+
+                this.setState({
+                    userTiles: tiles,
+                    autoSolve: autoSolve
+                });
+
+                // after user tile move, call for auto tile move
+                if(this.props.win!=true){
+                    this.autoTileClick();
+                }
+            };
+
+        },
+
+        tileClick: function (tileEl, position, status,tiles,prevStates) {
+
             // Possible moves
             // [up,right,down,left]
             // 9 = out of bounds
@@ -175,207 +296,55 @@
                 [3, 7, null, null], [4, 8, null, 6], [5, null, null, 7]
             ];
 
-            function animateTiles(i, move) {
-                var directions = ['up', 'right', 'down', 'left'];
-                // var moveToEl = document.querySelector('.tile:nth-child(' + (move + 1) + ')');
-                direction = directions[i];
-                tileEl.classList.add('move-' + direction);
-                // this is all a little hackish.
-                // css/js are used together to create the illusion of moving blocks
-                setTimeout(function () {
-                    // moveToEl.classList.add('highlight');
-                    tileEl.classList.remove('move-' + direction);
-                    // time horribly linked with css transition
-                    setTimeout(function () {
-                        // moveToEl.classList.remove('highlight');
-                    }, 400);
-                }, 200);
-            }
-
             // called after tile is fully moved
             // sets new state
-            function afterAnimate() {
+            function updateTiles() {
                 tiles[position] = '';
                 tiles[move] = status;
                 prevStates[prevStates.length] = [...tiles];
-
-                //propogate value to parent
-                var winVal = this.checkBoard();
-                this.props.onWin(winVal);
-
-                this.setState({
-                    tiles: tiles,
-                    moves: moves,
-                    win: winVal,
-                    prevStates: prevStates
-                });
-
-
-
             };
 
             // return if they've already won
-            if (this.state.win) return;
+            if (this.props.win) return;
 
             // check possible moves
             for (var i = 0; i < moves[position].length; i++) {
                 var move = moves[position][i];
                 // if an adjacent tile is empty
                 if (typeof move === 'number' && !tiles[move]) {
-                    animateTiles(i, move);
-                    setTimeout(afterAnimate.bind(this), 200);
-                    this.props.onMove(this.props.type);
+                    updateTiles();
+                    this.props.win = this.checkBoard(tiles);
                     break;
                 }
             }
         },
-        componentDidMount:function(){
 
-        },
-        // componentWillUnmount:function(){
-        //     //inform parent that a tile is moved
-        //     this.props.onMove(this.props.type);
-        // },
-        render: function () {
-            function tileMove(){
-                this.tileMove();
-            }
-            if(this.props.autoMove==true && this.props.type=='Auto'){
-                //move tile automatically
-                setTimeout(tileMove.bind(this), 200);
-            }
-
-            return (
-                    <span id='game-board' className={this.props.type}>
-                    {this.state.tiles.map(function (tile, position) {
-                        return ( <Tile status={tile} id={position} tileClick={this.tileClick}/> );
-                    }, this)}
-                    </span>
-            );
-                {/*<Menu winClass={this.state.win ? 'button win' : 'button'}*/}
-                      {/*status={this.state.win ? 'You win!' : 'Solve the puzzle.'} restart={this.restartGame}*/}
-                {/*/>*/}
-
-        }
-    });
-
-    var Games = React.createClass({
-        shuffle: function (array) {
-
-            // switches first two tiles
-            function switchTiles(array) {
-                var i = 0;
-
-                // find the first two tiles in a row
-                while (!array[i] || !array[i + 1]) i++;
-
-                // store tile value
-                var tile = array[i];
-                // switche values
-                array[i] = array[i + 1];
-                array[i + 1] = tile;
-
-                return array;
-            }
-
-            // counts inversions
-            function countInversions(array) {
-                // make array of inversions
-                var invArray = array.map(function (num, i) {
-                    var inversions = 0;
-                    for (j = i + 1; j < array.length; j++) {
-                        if (array[j] && array[j] < num) {
-                            inversions += 1;
-                        }
-                    }
-                    return inversions;
-                });
-                // return sum of inversions array
-                return invArray.reduce(function (a, b) {
-                    return a + b;
-                });
-            }
-
-            // fischer-yates shuffle algorithm
-            function fischerYates(array) {
-                var counter = array.length, temp, index;
-
-                // While there are elements in the array
-                while (counter > 0) {
-                    // Pick a random index
-                    index = Math.floor(Math.random() * counter);
-                    // Decrease counter by 1
-                    counter--;
-                    // And swap the last element with it
-                    temp = array[counter];
-                    array[counter] = array[index];
-                    array[index] = temp;
-                }
-
-                return array;
-            }
-
-            // Fischer-Yates shuffle
-            array = fischerYates(array);
-
-            // check for even number of inversions
-            if (countInversions(array) % 2 !== 0) {
-                // switch two tiles if odd
-                array = switchTiles(array);
-            }
-
-            return array;
-        },
-        getInitialState: function () {
-            var initState = this.shuffle([
-                1, 2, 3,
-                4, 5, 6,
-                7, 8, ''
-            ]);
-            // var initState = [
-            //     1, 2, 3,
-            //     4, 5, 6,
-            //     '', 7, 8
-            // ];
-
-            return {
-                // initial state of game board
-                initTiles: initState,
-                win: false,
-                autoMove:false,
-                reStart:false,
-            };
-        },
         restartGame: function () {
-            this.setState(this.getInitialState());
-        //  set restart to true
-            this.setState({reStart:true});
+            if(this.state.autoSolve==false){
+                //just restart
+                this.setState(this.getInitialState());
+            }else{
+            //    auto solve
+                    this.autoTileClick(true);
+            };
+
         },
 
-        onWin:function(val){
-            this.setState({
-                win:val
-            });
-        },
-        onMove:function (source) {
-            if(source=='User') var autoMove = true;
-            else var autoMove = false;
-            this.setState({
-                autoMove:autoMove
-            });
-        },
-       render: function(){
-           return(
-               <div>
+        render: function () {
 
-               <Game  type='User' initState={this.state.initTiles} onWin={this.onWin} onMove={this.onMove} autoMove={this.state.autoMove} reStart={this.state.reStart}/>
-               <Game  type='Auto' initState={this.state.initTiles} onWin={this.onWin} onMove={this.onMove} autoMove={this.state.autoMove} reStart={this.state.reStart}/>
-               <Menu winClass={this.state.win ? 'button win' : 'button'}
-                     status={this.state.win ? 'You win!' : 'Solve the puzzle.'} restart={this.restartGame}
-               />
-               </div>
-           )
-       }
+            var winStatus='Solve the Puzzle. Every move you make, Bot makes its own!';
+            if(this.props.userWin)winStatus='You Win';
+            if(this.props.autoWin)winStatus='Bot Wins';
+            return (
+                <div>
+                    <Game  id='User' tiles={this.state.userTiles} tileClick={this.userTileClick}/>
+                    <Game  id='Auto' tiles={this.state.autoTiles} />
+                    <Menu winClass={this.props.win ? 'button win' : 'button'}
+                          status={winStatus} restart={this.restartGame} buttonText={this.state.autoSolve?'Auto Solve':'Restart'}
+                    />
+                </div>
+            )
+        }
     });
     var Tile = React.createClass({
         clickHandler: function (e) {
@@ -390,20 +359,18 @@
         clickHandler: function () {
             this.props.restart();
         },
-        nextMoveHandler: function () {
-            this.props.nextMove();
-        },
         render: function () {
             return <div id="menu">
                 <h3 id="subtitle">{this.props.status}</h3>
-                <a className={this.props.winClass} onClick={this.clickHandler}>Restart</a>
+                <a className={this.props.winClass} onClick={this.clickHandler}>{this.props.buttonText}</a>
             </div>;
         }
     });
 
+
     // render Game to container
     React.render(
-        <Games />,
+        <Games/>,
         document.getElementById('game-container')
     );
 
