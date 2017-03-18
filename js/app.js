@@ -1,12 +1,9 @@
-/** @jsx React.DOM */
-
-// ReactJS Slide Puzzle
-// Author:     Evan Henley
-// Author URI: henleyedition.com
 
 (function () {
 
     var Chart = ReactGoogleCharts.default.Chart;
+    // var Slider = rc-slider.default.Slider;
+    var Slider = window["rc-slider"];
 
     var Game = React.createClass({
 
@@ -33,7 +30,7 @@
                 // make array of inversions
                 var invArray = array.map(function (num, i) {
                     var inversions = 0;
-                    for (j = i + 1; j < array.length; j++) {
+                    for (var j = i + 1; j < array.length; j++) {
                         if (array[j] && array[j] < num) {
                             inversions += 1;
                         }
@@ -88,7 +85,21 @@
                 tiles: initState,
                 win: false,
                 prevStates: [[...initState]],
-                distances: [[0, 20]]
+                distances: [[0, 20]],
+                depth: this.props.depth
+            };
+
+        },
+        getFirstState:function(){
+
+            var firstState = this.state.prevStates[0];
+            return {
+                // first state of game board
+                tiles: firstState,
+                win: false,
+                prevStates: [[...firstState]],
+                distances: [[0, 20]],
+                depth: this.props.depth
             };
         },
         checkBoard: function () {
@@ -200,7 +211,7 @@
                     [6, 0, 4], [1, 3, 5, 7], [8, 4, 2],
                     [3, 7], [6, 4, 8], [7, 5]
                 ];
-                var tDs = 100, pickTilePos;
+                var tDs = 1000, pickTilePos;
                 var newState = false;
                 var nxDs = 0;
                 for (var i = 0; i < moves[vPos].length; i++) {
@@ -212,7 +223,7 @@
                     nxTiles[tPos] = '';
                     //if nxTiles is same as previous then  drop it
                     if (!isEqual(nxTiles, prevTiles)) {
-                        while (dp != 0) {
+                        while (dp != 0 && nxDs==0) {
                             dp--;
                             var rt = pickTileToMoveWithDepth(tPos, dp, nxTiles, sTiles);
                             nxDs = rt.tDs;
@@ -241,7 +252,7 @@
             var vacantPos = findVacant();
 
             var sTiles = [...tiles];
-            var rt = pickTileToMoveWithDepth(vacantPos, 1, sTiles);
+            var rt = pickTileToMoveWithDepth(vacantPos, this.state.depth, sTiles);
             // var rt = pickTileToMove(vacantPos);
             if (rt.newState == true) {
                 var distances = [...this.state.distances];
@@ -270,7 +281,7 @@
             function animateTiles(i, move) {
                 var directions = ['up', 'right', 'down', 'left'];
                 var moveToEl = document.querySelector('.tile:nth-child(' + (move + 1) + ')');
-                direction = directions[i];
+                var direction = directions[i];
                 tileEl.classList.add('move-' + direction);
                 // this is all a little hackish.
                 // css/js are used together to create the illusion of moving blocks
@@ -318,6 +329,13 @@
         restartGame: function () {
             this.setState(this.getInitialState());
         },
+        repeatGame: function () {
+            //set tiles to initial state
+            this.setState(this.getFirstState());
+        },
+        onSliderChange: function(value){
+            this.setState({depth:value});
+        },
         render: function () {
             return <div>
                 <div id="game-board">
@@ -326,8 +344,12 @@
                     }, this)}
                 </div>
                 <Menu winClass={this.state.win ? 'button win' : 'button'}
-                      status={this.state.win ? 'You win!' : 'Solve the puzzle.'} restart={this.restartGame}
-                      nextMove={this.tileMove}/>
+                      status={this.state.win ? 'Solved!' : 'Solve the puzzle.'}
+                      restart={this.restartGame}
+                      repeat={this.repeatGame}
+                      nextMove={this.tileMove}
+                      depth={this.state.depth}
+                      onSliderChange={this.onSliderChange}/>
                 <DistanceChart distances={this.state.distances}/>
             </div>;
         }
@@ -384,21 +406,47 @@
         clickHandler: function () {
             this.props.restart();
         },
+        repeatHandler: function () {
+            this.props.repeat();
+        },
         nextMoveHandler: function () {
             this.props.nextMove();
         },
         render: function () {
             return <div id="menu">
                 <h3 id="subtitle">{this.props.status}</h3>
+                <DepthSlider depth={this.props.depth} onSliderChange={this.props.onSliderChange}/>
                 <a className={this.props.winClass} onClick={this.clickHandler}>Restart</a>
-                <a className={this.props.winClass} onClick={this.nextMoveHandler}>Next Move</a>
+                <a className={this.props.winClass} onClick={this.repeatHandler}>Repeat</a>
+                <a className={this.props.winClass} onClick={this.nextMoveHandler}>Auto Solve</a>
             </div>;
         }
     });
 
+    var DepthSlider = React.createClass({
+        getInitialState: function() {
+            return {
+                min: 0,
+                max: 10,
+            };
+        },
+        render: function() {
+            var wrapperStyle = { width: 400, marginLeft:300, marginBottom:20 };
+            return (
+                <div style={wrapperStyle}>
+                    <div>Depth:{this.props.depth}</div>
+                    <Slider defaultValue={this.props.depth} min={this.state.min} max={this.state.max}
+                            onChange={this.props.onSliderChange}
+                    />
+                </div>
+            );
+        }
+    });
     // render Game to container
-    React.render(
-        <Game />,
+    ReactDOM.render(
+        <div>
+            <Game depth={2}/>
+        </div>,
         document.getElementById('game-container')
     );
 
