@@ -1,9 +1,27 @@
-
 (function () {
 
     var Chart = ReactGoogleCharts.default.Chart;
     // var Slider = rc-slider.default.Slider;
     var Slider = window["rc-slider"];
+
+    //distance of a tile to various positions
+    var tileDs = [
+        [0, 1, 2, 1, 2, 3, 2, 3, 4], [1, 0, 1, 2, 1, 2, 3, 2, 3], [2, 1, 0, 3, 2, 1, 4, 3, 2],
+        [1, 2, 3, 0, 1, 2, 1, 2, 3], [2, 1, 2, 1, 0, 1, 2, 1, 2], [3, 2, 1, 2, 1, 0, 3, 2, 1],
+        [2, 3, 4, 1, 2, 3, 0, 1, 2], [3, 2, 3, 2, 1, 2, 1, 0, 1], [4, 3, 2, 3, 2, 1, 2, 1, 0]
+    ];
+    //possible moved for a tile
+    var tileMoves = [
+        [3, 1], [4, 0, 2], [5, 1],
+        [6, 0, 4], [1, 3, 5, 7], [8, 4, 2],
+        [3, 7], [6, 4, 8], [7, 5]
+    ];
+
+    var moves = [
+        [3, 1], [4, 0, 2], [5, 1],
+        [6, 0, 4], [1, 3, 5, 7], [8, 4, 2],
+        [3, 7], [6, 4, 8], [7, 5]
+    ];
 
     var Game = React.createClass({
 
@@ -73,24 +91,92 @@
 
             return array;
         },
-        getInitialState: function () {
-            var initState = this.shuffle([
-                1, 2, 3,
-                4, 5, 6,
-                7, 8, ''
-            ]);
+        findVacant: function(tiles){
+            for (var i = 0; i < tiles.length; i++) {
+                if (tiles[i] == '')return i;
+            }
+        },
+        shuffleComplex: function(c){
+            var base=[1,2,3,4,5,6,7,8,''];
+            var prevStates=[[...base]];
+            var maxBase=[];
+            var tDs=null;
+            var maxDs=null;
+            while(c>0){
+                var vPos=this.findVacant(base);
+                var maxDs=0;
+                //find tile with greater distance to move
+                for(var i=0;i<tileMoves[vPos].length;i++){
+                    tDs=0;
+                    var sBase = [...base];
+                    var tPos = tileMoves[vPos][i];
+                //  check if tPos->vPos creates prevState. If yes, then skip
+                    sBase[vPos] = sBase[tPos];
+                    sBase[tPos] = '';
+                    for(var j=0;j<prevStates.length; j++){
+                        if (prevStates[j].toString() == sBase.toString()){
+                        //  revert move
+                            sBase = [...base];
+                        }
+                    }
+                    //check if move was made
+                    if(sBase.toString()==base.toString())continue;
 
+                //  calculate the distance
+                    for (var k = 0; k < sBase.length; k++) {
+                        var tVal = sBase[k];
+                        if (tVal != '') {
+                            tDs = tDs + tileDs[tVal - 1][k];
+                        }
+                    }
+                     if(tDs>maxDs){
+                        maxDs = tDs;
+                        maxBase = sBase;
+                     }
+                }
+                //maxBase is the base with max distance after move
+                base = maxBase;
+                prevStates[prevStates.length] = base;
+                // console.log(base.toString()+'|'+maxDs);
+                c--;
+
+            }
+            return base;
+        },
+        getInitialState: function () {
+            // var initState = this.shuffle([
+            //     1, 2, 3,
+            //     4, 5, 6,
+            //     7, 8, ''
+            // ]);
+
+            // var initState = [4,1,2,7,5,3,8,'',6];
+
+            var initState = this.shuffleComplex(this.props.complexity * 10);
             return {
                 // initial state of game board
                 tiles: initState,
                 win: false,
                 prevStates: [[...initState]],
                 distances: [[0, 20]],
-                depth: this.props.depth
+                depth: this.props.depth,
+                complexity: this.props.complexity,
+                autoMove:false
             };
 
         },
-        getFirstState:function(){
+        getInitialStatebyComplexity: function () {
+            var initState = this.shuffleComplex(this.state.complexity * 10);
+            return {
+                // initial state of game board
+                tiles: initState,
+                win: false,
+                prevStates: [[...initState]],
+                distances: [[0, 20]]
+            };
+
+        },
+        getFirstState: function () {
 
             var firstState = this.state.prevStates[0];
             return {
@@ -99,7 +185,6 @@
                 win: false,
                 prevStates: [[...firstState]],
                 distances: [[0, 20]],
-                depth: this.props.depth
             };
         },
         checkBoard: function () {
@@ -198,52 +283,70 @@
             };
 
             function pickTileToMoveWithDepth(vPos, depth, sTiles, prevTiles) {
-                // Possible moves to fill vacant
-                // [up,right,down,left]
 
-                // var moves = [
-                //     [3,null,null,1],[4,0,null,2],[5,1,null,null],
-                //     [6,null,0,4],   [7,3,1,5],   [8,4,2,null],
-                //     [null,null,3,7],[null,6,4,8],[null,7,5,null]
-                // ];
-                var moves = [
-                    [3, 1], [4, 0, 2], [5, 1],
-                    [6, 0, 4], [1, 3, 5, 7], [8, 4, 2],
-                    [3, 7], [6, 4, 8], [7, 5]
-                ];
                 var tDs = 1000, pickTilePos;
                 var newState = false;
-                var nxDs = 0;
+                var minTiles=[];
                 for (var i = 0; i < moves[vPos].length; i++) {
+                    //check if puzzle is solved- tDs=0. If yes then No need to evaluate moves any more
+                    if(tDs==0){
+                        continue;
+                    }
                     var dp = depth;
                     var tPos = moves[vPos][i];
+                    var nxPos = 0;
+                    var nxDs = 0;
                     //simulate the move in sTiles
                     var nxTiles = [...sTiles];
                     nxTiles[vPos] = nxTiles[tPos];
                     nxTiles[tPos] = '';
                     //if nxTiles is same as previous then  drop it
-                    if (!isEqual(nxTiles, prevTiles)) {
-                        while (dp != 0 && nxDs==0) {
-                            dp--;
-                            var rt = pickTileToMoveWithDepth(tPos, dp, nxTiles, sTiles);
-                            nxDs = rt.tDs;
-                        }
-                        // if an adjacent tile is empty
-                        if (!stateExists(tPos, vPos)) {
-                            newState = true;
-                            var ds = getDistance(tPos, vPos, sTiles);
-                            //add nxDs
-                            ds = ds + nxDs;
-                            if (ds <= tDs) {
-                                pickTilePos = tPos;
-                                tDs = ds;
-                            }
-                        }
+                    if (isEqual(nxTiles, prevTiles)) {
+                        continue;
                     }
+                    //if nxTiles found in prevTiles(observed)
+                    if (stateExists(tPos, vPos)) {
+                        continue;
+                    }
+
+                    //check if final state is reached. It can be reached at node level as well (dp!=0).
+                    //If yes, then no need to proceed with next level(or march towards leaves). Stop and return.
+                    //if No,  then get distance of next move.
+                    //also if at node level, if final state is reached(at deeper level); then no need to evaluate other nodes(for loop)
+
+                    var ds = getDistance(tPos, vPos, sTiles);
+                    if(ds==0){
+                        dp=0;
+                    };
+                    //try to reach the leafs and get the distances
+                    while (dp != 0&&nxPos==0) {
+                        dp--;
+                        var rt = pickTileToMoveWithDepth(tPos, dp, nxTiles, sTiles);
+                        nxDs = rt.tDs;
+                        nxPos = rt.tPos;
+                    }
+                    newState = true;
+                    if(depth==0){
+                        var ds = getDistance(tPos, vPos, sTiles);
+                    }else{
+                        //mark node distance as minimum of it's leaves
+                        var ds = nxDs;
+                    }
+
+                    //add nxDs
+                    // ds = ds + nxDs;
+                    if (ds <= tDs) {
+                        pickTilePos = tPos;
+                        tDs = ds;
+                        minTiles=nxTiles;
+                        // console.log('('+depth+')'  +nxTiles.toString()+'|'+ds);
+                    }
+
 
                 }
 
-                return {newState: newState, tPos: pickTilePos, tDs: tDs};
+
+                return {newState: newState, tPos: pickTilePos, tDs: tDs, nxTiles:minTiles};
 
             };
 
@@ -253,10 +356,13 @@
 
             var sTiles = [...tiles];
             var rt = pickTileToMoveWithDepth(vacantPos, this.state.depth, sTiles);
+             //get the node distance (as tDs is leaf distance)
             // var rt = pickTileToMove(vacantPos);
             if (rt.newState == true) {
+                var nodeDs = getDistance(rt.tPos, vacantPos, tiles);
+                // console.log(tiles.toString()+'|'+rt.tPos+'|'+nodeDs);
                 var distances = [...this.state.distances];
-                distances[distances.length] = [distances.length + 1, rt.tDs];
+                distances[distances.length] = [distances.length + 1, nodeDs];
                 this.setState({distances: distances});
                 var tileEl = document.querySelector('.tile:nth-child(' + (rt.tPos + 1) + ')');
                 this.tileClick(tileEl, rt.tPos, tiles[rt.tPos]);
@@ -309,7 +415,10 @@
                 });
 
                 //next move
-                this.tileMove();
+                if(this.checkBoard()==false && this.state.autoMove==true){
+                    this.tileMove();
+                }
+
             };
 
             // return if they've already won
@@ -330,11 +439,26 @@
             this.setState(this.getInitialState());
         },
         repeatGame: function () {
+            //stop auto-move if running
+            this.setState({autoMove:false});
             //set tiles to initial state
+             this.setState(this.getFirstState());
+        },
+        onAutoMove: function () {
+            this.setState({autoMove:true});
+            this.tileMove();
+        },
+        onSliderChange: function (value) {
+            //stop the auto-solve if its runnin
+            this.setState({depth: value,
+            autoMove:false});
             this.setState(this.getFirstState());
         },
-        onSliderChange: function(value){
-            this.setState({depth:value});
+        onComplexityChange: function (value) {
+            //stop the auto-solve if its runnin
+            this.setState({complexity: value,
+            autoMove:false});
+            this.setState(this.getInitialStatebyComplexity());
         },
         render: function () {
             return <div>
@@ -347,9 +471,11 @@
                       status={this.state.win ? 'Solved!' : 'Solve the puzzle.'}
                       restart={this.restartGame}
                       repeat={this.repeatGame}
-                      nextMove={this.tileMove}
+                      nextMove={this.onAutoMove}
                       depth={this.state.depth}
-                      onSliderChange={this.onSliderChange}/>
+                      onSliderChange={this.onSliderChange}
+                      complexity={this.state.complexity}
+                      onComplexityChange={this.onComplexityChange}/>
                 <DistanceChart distances={this.state.distances}/>
             </div>;
         }
@@ -410,13 +536,14 @@
             this.props.repeat();
         },
         nextMoveHandler: function () {
+            // console.log('--Auto Solve--');
             this.props.nextMove();
         },
         render: function () {
             return <div id="menu">
                 <h3 id="subtitle">{this.props.status}</h3>
                 <DepthSlider depth={this.props.depth} onSliderChange={this.props.onSliderChange}/>
-                <a className={this.props.winClass} onClick={this.clickHandler}>Restart</a>
+                <ComplexitySlider complexity={this.props.complexity} onComplexityChange={this.props.onComplexityChange}/>
                 <a className={this.props.winClass} onClick={this.repeatHandler}>Repeat</a>
                 <a className={this.props.winClass} onClick={this.nextMoveHandler}>Auto Solve</a>
             </div>;
@@ -424,28 +551,49 @@
     });
 
     var DepthSlider = React.createClass({
-        getInitialState: function() {
+        getInitialState: function () {
             return {
                 min: 0,
-                max: 10,
+                max: 15,
             };
         },
-        render: function() {
-            var wrapperStyle = { width: 400, marginLeft:300, marginBottom:20 };
+        render: function () {
+            var wrapperStyle = {width: 400, marginLeft: 300, marginBottom: 20};
             return (
                 <div style={wrapperStyle}>
                     <div>Depth:{this.props.depth}</div>
-                    <Slider defaultValue={this.props.depth} min={this.state.min} max={this.state.max}
+                    <Slider value={this.props.depth} min={this.state.min} max={this.state.max}
                             onChange={this.props.onSliderChange}
                     />
                 </div>
             );
         }
     });
+
+    var ComplexitySlider = React.createClass({
+        getInitialState: function () {
+            return {
+                min: 1,
+                max: 10,
+            };
+        },
+        render: function () {
+            var wrapperStyle = {width: 400, marginLeft: 300, marginBottom: 20};
+            return (
+                <div style={wrapperStyle}>
+                    <div>Complexity:{this.props.complexity}</div>
+                    <Slider value={this.props.complexity} min={this.state.min} max={this.state.max}
+                            onChange={this.props.onComplexityChange}
+                    />
+                </div>
+            );
+        }
+    });
+
     // render Game to container
     ReactDOM.render(
         <div>
-            <Game depth={2}/>
+            <Game depth={2} complexity={1}/>
         </div>,
         document.getElementById('game-container')
     );
