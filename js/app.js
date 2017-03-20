@@ -144,15 +144,15 @@
             return base;
         },
         getInitialState: function () {
-            // var initState = this.shuffle([
-            //     1, 2, 3,
-            //     4, 5, 6,
-            //     7, 8, ''
-            // ]);
+            var initState = this.shuffle([
+                1, 2, 3,
+                4, 5, 6,
+                7, 8, ''
+            ]);
 
             // var initState = [4,1,2,7,5,3,8,'',6];
 
-            var initState = this.shuffleComplex(this.props.complexity * 10);
+            // var initState = this.shuffleComplex(this.props.complexity * 10);
             return {
                 // initial state of game board
                 tiles: initState,
@@ -543,7 +543,7 @@
             return <div id="menu">
                 <h3 id="subtitle">{this.props.status}</h3>
                 <DepthSlider depth={this.props.depth} onSliderChange={this.props.onSliderChange}/>
-                <ComplexitySlider complexity={this.props.complexity} onComplexityChange={this.props.onComplexityChange}/>
+                {/*<ComplexitySlider complexity={this.props.complexity} onComplexityChange={this.props.onComplexityChange}/>*/}
                 <a className={this.props.winClass} onClick={this.repeatHandler}>Repeat</a>
                 <a className={this.props.winClass} onClick={this.nextMoveHandler}>Auto Solve</a>
             </div>;
