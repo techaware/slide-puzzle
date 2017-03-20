@@ -1,6 +1,6 @@
-React.js Slide Puzzle
+Hill climbing Algorithm applied to Slide Puzzle
 ====================
 
-A 3X3 slide puzzle written in [React](http://facebook.github.io/react/). Check out the [live example](http://henleyedition.com/reactjs-slide-puzzle/).
+Check out the [live example](http://ecotaru.com/slide-puzzle-eval/) to see how Hill Climbing Algorithm depth influences optimization of the puzzle solution.
 
-I was inspired to write this after running through Brian Barnett's great [Tic Tac React tutorial](http://w.brianbar.net/2014/08/tic-tac-react-part-1/), and therefore mine shares much of the same code. I'd really recommend it if you're interested in learning about React.
+Slide puzzle UI is based on Evan Henley's [project](http://henleyedition.com/reactjs-slide-puzzle/) which is inspired from [Tic Tac React tutorial](http://w.brianbar.net/2014/08/tic-tac-react-part-1/).
